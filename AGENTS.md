@@ -4,14 +4,14 @@ This file contains guidelines and commands for agentic coding agents working in 
 
 ## Project Overview
 
-This is a Python-based GraphRAG (Graph Retrieval-Augmented Generation) project that uses Neo4j as the graph database and LangChain for graph operations. The project focuses on building and querying knowledge graphs from structured data.
+This is a Python-based GraphRAG (Graph Retrieval-Augmented Generation) project that uses Neo4j as the graph database and LangChain for graph operations. The project focuses on building and querying knowledge graphs from structured data. The project follows a modular architecture with separate modules for configuration, graph operations, data processing, and orchestration.
 
 ## Development Environment
 
 - **Python Version**: 3.12+
 - **Package Manager**: uv (based on uv.lock file)
 - **Virtual Environment**: .venv (activated automatically)
-- **Project Structure**: Single-file application (main.py) with pyproject.toml
+- **Project Structure**: Modular architecture with separate modules (config/, graph/, data/, orchestration/) and main entry point
 
 ## Build and Development Commands
 
@@ -36,10 +36,17 @@ uv run python main.py
 
 ### Testing
 ```bash
-# No test framework currently configured
-# To add tests, install pytest and create test_*.py files
-# uv add pytest
-# uv run pytest
+# Run all tests
+uv run pytest
+
+# Run specific test file
+uv run pytest tests/test_neo4j_client.py
+
+# Run with coverage
+uv run pytest --cov=.
+
+# Run with verbose output
+uv run pytest -v
 ```
 
 ### Code Quality
@@ -79,7 +86,8 @@ uv run python main.py
 - Use try-except blocks for external connections
 - Handle database connection errors gracefully
 - Validate data sources before processing
-- Log errors appropriately (add logging if needed)
+- Raise custom exceptions instead of using sys.exit()
+- Use proper exception types (ConfigurationError, ConnectionError, DataProcessingError)
 
 ### Type Hints
 - Add type hints for function signatures
@@ -138,6 +146,22 @@ When adding tests:
 - Mock external data sources for unit tests
 - Test graph operations with sample data
 - Add integration tests for end-to-end workflows
+
+## Docker Setup
+
+For local development with Neo4j in Docker:
+
+```bash
+# Start Neo4j service
+./start-neo4j.sh  # Linux/Mac
+start-neo4j.bat   # Windows
+
+# Or manually:
+docker compose up -d
+
+# Access Neo4j Browser
+# http://localhost:7474
+```
 
 ## Git Workflow
 

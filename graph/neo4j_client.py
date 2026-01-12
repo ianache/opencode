@@ -5,7 +5,6 @@ Handles Neo4j database connections, query execution,
 and graph operations using langchain-neo4j.
 """
 
-import sys
 from typing import Any, Dict, List, Optional
 
 from langchain_neo4j import Neo4jGraph
@@ -13,13 +12,19 @@ from langchain_neo4j import Neo4jGraph
 from config.settings import get_settings
 
 
+class ConnectionError(Exception):
+    """Raised when Neo4j connection fails."""
+
+    pass
+
+
 class Neo4jClient:
     """Neo4j database client wrapper."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.settings = get_settings()
         self._graph: Optional[Neo4jGraph] = None
-        self._is_connected = False
+        self._is_connected: bool = False
 
     def connect(self) -> None:
         """Establish connection to Neo4j database."""
@@ -39,14 +44,15 @@ class Neo4jClient:
 
         except Exception as e:
             print(f"Error connecting to Neo4j: {e}")
-            sys.exit(1)
+            raise ConnectionError(f"Failed to connect to Neo4j: {e}")
 
     @property
     def graph(self) -> Neo4jGraph:
         """Get Neo4j graph instance, connecting if necessary."""
         if not self._is_connected or self._graph is None:
             self.connect()
-        return self._graph  # type: ignore
+        assert self._graph is not None  # Connected in connect()
+        return self._graph
 
     def query(
         self, query: str, params: Optional[Dict[str, Any]] = None
@@ -85,11 +91,11 @@ class Neo4jClient:
         except Exception as e:
             print(f"Error closing connection: {e}")
 
-    def __enter__(self):
+    def __enter__(self) -> "Neo4jClient":
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Context manager exit."""
         self.close()
 

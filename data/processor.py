@@ -5,13 +5,18 @@ Handles data loading, cleaning, validation,
 and preprocessing for news article data.
 """
 
-import sys
 from pathlib import Path
 from typing import Optional
 
 import pandas as pd
 
 from config.settings import get_settings
+
+
+class DataProcessingError(Exception):
+    """Raised when data processing operations fail."""
+
+    pass
 
 
 class DataProcessor:
@@ -36,7 +41,7 @@ class DataProcessor:
 
         except Exception as e:
             print(f"Error loading news data: {e}")
-            sys.exit(1)
+            raise DataProcessingError(f"Failed to load news data: {e}")
 
     def _validate_news_data(self, df: pd.DataFrame) -> None:
         """Validate that news data has expected structure."""
@@ -44,15 +49,15 @@ class DataProcessor:
         missing_columns = [col for col in required_columns if col not in df.columns]
 
         if missing_columns:
-            print(
-                f"Error: News data missing required columns: {', '.join(missing_columns)}"
+            error_msg = (
+                f"News data missing required columns: {', '.join(missing_columns)}"
             )
+            print(f"Error: {error_msg}")
             print(f"Available columns: {list(df.columns)}")
-            sys.exit(1)
+            raise DataProcessingError(error_msg)
 
         if len(df) == 0:
-            print("Error: News data is empty")
-            sys.exit(1)
+            raise DataProcessingError("News data is empty")
 
         print(f"Data validation passed: {len(df)} rows, {len(df.columns)} columns")
 
@@ -76,14 +81,14 @@ class DataProcessor:
             empty_mask = cleaned_df["text"] != ""
 
             combined_mask = text_length_mask & content_mask & empty_mask
-            result_df = cleaned_df[combined_mask]
+            result_df = cleaned_df[combined_mask].copy()
 
             print(f"Text cleaning completed: {len(result_df)} articles remain")
             return result_df
 
         except Exception as e:
             print(f"Error cleaning text data: {e}")
-            sys.exit(1)
+            raise DataProcessingError(f"Failed to clean text data: {e}")
 
     def get_data_summary(self, df: pd.DataFrame) -> dict:
         """Get summary statistics for data."""

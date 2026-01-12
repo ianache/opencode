@@ -6,11 +6,16 @@ and provides centralized configuration access.
 """
 
 import os
-import sys
 from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
+
+
+class ConfigurationError(Exception):
+    """Raised when required configuration is missing or invalid."""
+
+    pass
 
 
 class Settings:
@@ -31,10 +36,10 @@ class Settings:
         self.log_level: str = os.getenv("LOG_LEVEL", "INFO")
 
         # Data Configuration
-        self.news_data_url: str = (
-            "https://raw.githubusercontent.com/tomasonjo/blog-datasets/main/news_articles.csv"
+        self.news_data_url: str = os.getenv(
+            "NEWS_DATA_URL",
+            "https://raw.githubusercontent.com/tomasonjo/blog-datasets/main/news_articles.csv",
         )
-        self.data_dir: Path = Path(__file__).parent.parent / "data"
 
         # Validate required settings
         self._validate()
@@ -55,9 +60,9 @@ class Settings:
             error_msg = (
                 f"Missing required environment variables: {', '.join(missing_vars)}"
             )
-            print(f"Error: {error_msg}")
-            print("Please set up your .env file based on .env.example")
-            sys.exit(1)
+            raise ConfigurationError(
+                f"{error_msg}. Please set up your .env file based on .env.example"
+            )
 
     def __str__(self) -> str:
         """Return string representation of settings (excluding sensitive data)."""
