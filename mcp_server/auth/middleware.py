@@ -8,10 +8,11 @@ for MCP server requests.
 import os
 from typing import Any, Callable, Dict, Optional
 
-from fastmcp import Context, ToolError
+from fastmcp import Context
+from fastmcp.exceptions import ToolError
 from loguru import logger
 
-from mcp.auth.jwt_handler import JWTHandler
+from mcp_server.auth.jwt_handler import JWTHandler
 
 
 class AuthMiddleware:

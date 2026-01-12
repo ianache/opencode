@@ -17,7 +17,7 @@ try:
     from mcp_server.tools.functionality_tools import FunctionalityTools
     from mcp_server.resources.product_resources import ProductResources
 except ImportError as e:
-    pytest.skip(f"MCP server dependencies not available: {e}")
+    pytest.skip(f"MCP server dependencies not available: {e}", allow_module_level=True)
 
 
 class TestFeature2Integration:

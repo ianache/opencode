@@ -105,6 +105,24 @@ class ProductManager:
             logger.error(f"Error listing products: {e}")
             raise
 
+    def search_products(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """Search products by code or name with fuzzy matching."""
+        try:
+            # Use a simple fuzzy search on code and name
+            query_cypher = """
+            MATCH (p:Product)
+            WHERE toLower(p.code) CONTAINS toLower($query) 
+               OR toLower(p.name) CONTAINS toLower($query)
+            RETURN p
+            ORDER BY p.code
+            LIMIT $limit
+            """
+            result = self.client.query(query_cypher, {"query": query, "limit": limit})
+            return [item["p"] for item in result]
+        except Exception as e:
+            logger.error(f"Error searching products: {e}")
+            raise
+
     # ==================== FUNCTIONALITY METHODS ====================
 
     def create_functionality(self, code: str, name: str) -> Dict[str, Any]:
@@ -387,14 +405,14 @@ class ProductManager:
             query = """
             MATCH (p:Product {code: $product_code})
             OPTIONAL MATCH (p)-[:ASIGNACION_FUNCIONALIDAD]->(f:Functionality)
-            OPTIONAL MATCH (f)<-[:HAS_INCIDENT]-(i:Incident)
+            OPTIONAL MATCH (f)-[:HAS_INCIDENT]->(i:Incident)
             OPTIONAL MATCH (i)-[:HAS_RESOLUTION]->(r:Resolution)
             RETURN p,
                    collect(DISTINCT f) as functionalities,
                    collect(DISTINCT i) as incidents,
                    collect(DISTINCT r) as resolutions
             """
-            result = self.client.query(query, {"product_code": product_code})
+            result = self.client.query(query, params={"product_code": product_code})
             if result:
                 return result[0]
             return {}
@@ -412,7 +430,7 @@ class ProductManager:
             query = """
             MATCH (f:Functionality {code: $functionality_code})
             OPTIONAL MATCH (p:Product)-[:ASIGNACION_FUNCIONALIDAD]->(f)
-            OPTIONAL MATCH (c:Component)-[:ASIGNACION_FUNCIONALIDAD]->(f)
+            OPTIONAL MATCH (f)-[:HAS_COMPONENT]->(c:Component)
             OPTIONAL MATCH (f)-[:HAS_INCIDENT]->(i:Incident)
             OPTIONAL MATCH (i)-[:HAS_RESOLUTION]->(r:Resolution)
             RETURN f,
@@ -431,6 +449,41 @@ class ProductManager:
             logger.error(
                 f"Error getting functionality {functionality_code} with products: {e}"
             )
+            raise
+
+    def list_functionalities(self) -> List[Dict[str, Any]]:
+        """List all functionalities."""
+        try:
+            query = """
+            MATCH (f:Functionality)
+            RETURN f
+            ORDER BY f.code
+            """
+            result = self.client.query(query)
+            return [item["f"] for item in result]
+        except Exception as e:
+            logger.error(f"Error listing functionalities: {e}")
+            raise
+
+    def get_all_products_summary(self) -> List[Dict[str, Any]]:
+        """Get summary of all products with their functionalities."""
+        try:
+            query = """
+            MATCH (p:Product)
+            OPTIONAL MATCH (p)-[:ASIGNACION_FUNCIONALIDAD]->(f:Functionality)
+            RETURN p, collect(DISTINCT f) as functionalities
+            """
+            result = self.client.query(query)
+
+            products_summary = []
+            for item in result:
+                product = item["p"]
+                product["functionalities"] = item["functionalities"]
+                products_summary.append(product)
+
+            return products_summary
+        except Exception as e:
+            logger.error(f"Error getting products summary: {e}")
             raise
 
     def get_component_with_functionalities(self, component_code: str) -> Dict[str, Any]:
@@ -505,25 +558,6 @@ class ProductManager:
             return result
         except Exception as e:
             logger.error(f"Error getting resolutions for incident {incident_code}: {e}")
-            raise
-
-    def get_all_products_summary(self) -> List[Dict[str, Any]]:
-        """Get summary of all products with their functionalities and incident counts."""
-        try:
-            query = """
-            MATCH (p:Product)
-            OPTIONAL MATCH (p)-[:ASIGNACION_FUNCIONALIDAD]->(f:Functionality)
-            OPTIONAL MATCH (f)-[:HAS_INCIDENT]->(i:Incident)
-            RETURN p.code as product_code,
-                   p.name as product_name,
-                   count(DISTINCT f) as functionality_count,
-                   count(DISTINCT i) as incident_count
-            ORDER BY p.code
-            """
-            result = self.client.query(query)
-            return result
-        except Exception as e:
-            logger.error(f"Error getting products summary: {e}")
             raise
 
     def create_constraints(self) -> None:

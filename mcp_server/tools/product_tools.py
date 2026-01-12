@@ -2,56 +2,72 @@
 MCP tools for product management operations.
 
 Provides MCP tools for creating, reading, updating, and deleting products
-in the Neo4j database through the ProductManager.
+in Neo4j database through the ProductManager.
 """
 
 from typing import Any, Dict, List, Optional
+from datetime import datetime
 
-from fastmcp import Context, ToolError
+from fastmcp import Context
 from loguru import logger
 
 from graph.neo4j_client import create_neo4j_client
 from graph.product_manager import ProductManager
-from mcp.auth.middleware import AuthMiddleware
-from mcp.models.requests import (
+from mcp_server.auth.middleware import AuthMiddleware
+from mcp_server.models.requests import (
     ProductRegistrationRequest,
     ProductUpdateRequest,
     PaginationParams,
 )
-from mcp.models.responses import (
+from mcp_server.models.responses import (
     ProductData,
     ProductListResponse,
+    ProductDetailsResponse,
     SuccessResponse,
     ErrorResponse,
 )
-from mcp.models.responses import (
-    ProductResponse,
-    ProductListResponse,
-    SuccessResponse,
-    ErrorResponse,
-)
+
+
+def serialize_datetime(dt_obj: Any) -> Any:
+    """Convert datetime objects to ISO strings for JSON serialization."""
+    # Handle None
+    if dt_obj is None:
+        return None
+
+    # Handle neo4j.time.DateTime specifically
+    if hasattr(dt_obj, "isoformat"):
+        return dt_obj.isoformat()
+
+    # Handle standard Python datetime
+    if isinstance(dt_obj, datetime):
+        return dt_obj.isoformat()
+
+    # Handle lists recursively
+    if isinstance(dt_obj, list):
+        return [serialize_datetime(item) for item in dt_obj]
+
+    # Handle dictionaries recursively
+    if isinstance(dt_obj, dict):
+        return {key: serialize_datetime(value) for key, value in dt_obj.items()}
+
+    # Handle other types (including neo4j.time.DateTime)
+    if hasattr(dt_obj, "year") and hasattr(dt_obj, "month") and hasattr(dt_obj, "day"):
+        # Try to convert neo4j DateTime-like objects
+        try:
+            return str(dt_obj)
+        except:
+            return dt_obj.__str__() if hasattr(dt_obj, "__str__") else dt_obj
+
+    return dt_obj
 
 
 class ProductTools:
     """MCP tools for product management."""
 
-    def __init__(self, auth_middleware: Optional[AuthMiddleware] = None):
-        """Initialize product tools with optional authentication.
-
-        Args:
-            auth_middleware: Authentication middleware instance
-        """
-        self.auth_middleware = auth_middleware or AuthMiddleware()
-        self._product_manager: Optional[ProductManager] = None
-
-    @property
-    def product_manager(self) -> ProductManager:
-        """Lazy initialization of ProductManager."""
-        if self._product_manager is None:
-            neo4j_client = create_neo4j_client()
-            neo4j_client.connect()
-            self._product_manager = ProductManager(neo4j_client)
-        return self._product_manager
+    def __init__(self, auth_middleware: AuthMiddleware):
+        """Initialize ProductTools with authentication middleware."""
+        self.auth_middleware = auth_middleware
+        self._product_manager = ProductManager(create_neo4j_client())
 
     def register_product(
         self,
@@ -64,26 +80,26 @@ class ProductTools:
 
         Args:
             ctx: MCP context
-            code: Product unique identifier (required)
-            name: Product descriptive name (required)
-            functionalities: List of functionality codes to assign (optional)
+            code: Product unique identifier
+            name: Product name
+            functionalities: Optional list of functionality codes to assign
 
         Returns:
-            Product registration result
+            Registration result
 
         Raises:
-            ToolError: If validation fails or product creation fails
+            Exception: If registration fails
         """
         try:
+            logger.info(f"Registering product: {code}")
+
             # Validate input
             request = ProductRegistrationRequest(
                 code=code, name=name, functionalities=functionalities or []
             )
 
-            logger.info(f"Registering product: {request.code}")
-
             # Create product
-            product_node = self.product_manager.create_product(
+            product_node = self._product_manager.create_product(
                 request.code, request.name
             )
 
@@ -92,75 +108,77 @@ class ProductTools:
             if request.functionalities:
                 for func_code in request.functionalities:
                     try:
-                        # Ensure functionality exists
-                        func = self.product_manager.get_functionality(func_code)
-                        if not func:
-                            raise ToolError(f"Functionality '{func_code}' not found")
-
-                        # Assign functionality to product
-                        success = self.product_manager.assign_functionality_to_product(
+                        success = self._product_manager.assign_functionality_to_product(
                             request.code, func_code
                         )
                         if success:
-                            assigned_functionalities.append(func_code)
-
+                            func = self._product_manager.get_functionality(func_code)
+                            if func:
+                                assigned_functionalities.append(
+                                    {
+                                        "code": func["code"],
+                                        "name": func["name"],
+                                        "created_at": func.get("created_at"),
+                                    }
+                                )
                     except Exception as e:
                         logger.warning(
                             f"Failed to assign functionality {func_code}: {e}"
                         )
 
-            # Get complete product details
-            product_details = self.product_manager.get_product_with_functionalities(
+            # Get created product with details
+            product_details = self._product_manager.get_product_with_functionalities(
                 request.code
             )
 
             response = {
                 "success": True,
-                "message": f"Product '{request.code}' registered successfully",
-                "product": {
-                    "code": product_node["code"],
-                    "name": product_node["name"],
-                    "created_at": product_node.get("created_at"),
-                    "functionalities": assigned_functionalities,
-                    "functionality_count": len(assigned_functionalities),
-                },
+                "message": f"Product '{code}' registered successfully",
+                "product": serialize_datetime(
+                    {
+                        "code": product_details["p"]["code"],
+                        "name": product_details["p"]["name"],
+                        "created_at": product_details["p"].get("created_at"),
+                        "updated_at": product_details["p"].get("updated_at"),
+                        "functionality_count": len(assigned_functionalities),
+                        "functionalities": assigned_functionalities,
+                    }
+                ),
             }
 
-            logger.info(
-                f"Product registered: {request.code} with {len(assigned_functionalities)} functionalities"
-            )
+            logger.info(f"Product registered: {code}")
             return response
 
         except ValueError as e:
             logger.error(f"Product registration validation error: {e}")
-            raise ToolError(f"Validation error: {str(e)}")
+            raise Exception(f"Validation error: {str(e)}")
 
         except Exception as e:
             logger.error(f"Product registration failed: {e}")
-            raise ToolError(f"Failed to register product: {str(e)}")
+            raise Exception(f"Failed to register product: {str(e)}")
 
-    def get_product_details(self, ctx: Context, product_code: str) -> Dict[str, Any]:
+    def get_product_details(self, ctx: Context, code: str) -> Dict[str, Any]:
         """Get detailed information about a specific product.
 
         Args:
             ctx: MCP context
-            product_code: Product unique identifier
+            code: Product unique identifier
 
         Returns:
-            Product details with functionalities and incidents
+            Product details
 
         Raises:
-            ToolError: If product is not found or access fails
+            Exception: If product not found or access fails
         """
         try:
-            logger.info(f"Getting product details: {product_code}")
+            logger.info(f"Getting product details: {code}")
 
-            product_details = self.product_manager.get_product_with_functionalities(
-                product_code
+            product_details = self._product_manager.get_product_with_functionalities(
+                code
             )
 
             if not product_details or not product_details.get("p"):
-                raise ToolError(f"Product '{product_code}' not found")
+                raise Exception(f"Product '{code}' not found")
 
             product = product_details["p"]
             functionalities = product_details.get("functionalities", [])
@@ -169,51 +187,58 @@ class ProductTools:
 
             response = {
                 "success": True,
-                "product": {
-                    "code": product["code"],
-                    "name": product["name"],
-                    "created_at": product.get("created_at"),
-                    "updated_at": product.get("updated_at"),
-                },
-                "functionalities": [
+                "product": serialize_datetime(
                     {
-                        "code": func["code"],
-                        "name": func["name"],
-                        "created_at": func.get("created_at"),
+                        "code": product["code"],
+                        "name": product["name"],
+                        "created_at": product.get("created_at"),
+                        "updated_at": product.get("updated_at"),
                     }
+                ),
+                "functionalities": [
+                    serialize_datetime(
+                        {
+                            "code": func["code"],
+                            "name": func["name"],
+                            "created_at": func.get("created_at"),
+                        }
+                    )
                     for func in functionalities
+                    if func
                 ],
                 "incident_count": len(incidents),
                 "incidents": [
-                    {
-                        "code": inc["code"],
-                        "description": inc["description"],
-                        "sla_level": inc["sla_level"],
-                        "created_at": inc.get("created_at"),
-                    }
+                    serialize_datetime(
+                        {
+                            "code": inc["code"],
+                            "description": inc["description"],
+                            "sla_level": inc["sla_level"],
+                            "created_at": inc.get("created_at"),
+                        }
+                    )
                     for inc in incidents
+                    if inc
                 ],
                 "resolution_count": len(resolutions),
                 "resolutions": [
-                    {
-                        "incident_code": res["incident_code"],
-                        "procedure": res["procedure"],
-                        "resolution_date": res.get("resolution_date"),
-                        "created_at": res.get("created_at"),
-                    }
+                    serialize_datetime(
+                        {
+                            "incident_code": res["incident_code"],
+                            "procedure": res["procedure"],
+                            "resolution_date": res.get("resolution_date"),
+                            "created_at": res.get("created_at"),
+                        }
+                    )
                     for res in resolutions
                 ],
             }
 
-            logger.info(f"Retrieved product details: {product_code}")
+            logger.info(f"Retrieved product details: {code}")
             return response
-
-        except ToolError:
-            raise
 
         except Exception as e:
             logger.error(f"Failed to get product details: {e}")
-            raise ToolError(f"Failed to retrieve product details: {str(e)}")
+            raise Exception(f"Failed to retrieve product details: {str(e)}")
 
     def update_product(
         self, ctx: Context, product_code: str, name: Optional[str] = None
@@ -229,15 +254,15 @@ class ProductTools:
             Update result
 
         Raises:
-            ToolError: If update fails or product not found
+            Exception: If update fails or product not found
         """
         try:
             logger.info(f"Updating product: {product_code}")
 
             # Check if product exists
-            existing = self.product_manager.get_product(product_code)
+            existing = self._product_manager.get_product(product_code)
             if not existing:
-                raise ToolError(f"Product '{product_code}' not found")
+                raise Exception(f"Product '{product_code}' not found")
 
             # Prepare updates
             updates = {}
@@ -245,36 +270,38 @@ class ProductTools:
                 updates["name"] = name.strip()
 
             if not updates:
-                raise ToolError("No updates provided")
+                raise Exception("No updates provided")
 
             # Update product
-            success = self.product_manager.update_product(product_code, **updates)
+            success = self._product_manager.update_product(product_code, **updates)
 
             if success:
                 # Get updated product
-                updated = self.product_manager.get_product(product_code)
+                updated = self._product_manager.get_product(product_code)
+
+                if not updated:
+                    raise Exception(f"Product '{product_code}' not found after update")
 
                 response = {
                     "success": True,
                     "message": f"Product '{product_code}' updated successfully",
-                    "product": {
-                        "code": updated["code"],
-                        "name": updated["name"],
-                        "updated_at": updated.get("updated_at"),
-                    },
+                    "product": serialize_datetime(
+                        {
+                            "code": updated["code"],
+                            "name": updated["name"],
+                            "updated_at": updated.get("updated_at"),
+                        }
+                    ),
                 }
 
                 logger.info(f"Product updated: {product_code}")
                 return response
             else:
-                raise ToolError(f"Failed to update product '{product_code}'")
-
-        except ToolError:
-            raise
+                raise Exception(f"Failed to update product '{product_code}'")
 
         except Exception as e:
             logger.error(f"Product update failed: {e}")
-            raise ToolError(f"Failed to update product: {str(e)}")
+            raise Exception(f"Failed to update product: {str(e)}")
 
     def delete_product(self, ctx: Context, product_code: str) -> Dict[str, Any]:
         """Delete a product and all its relationships.
@@ -287,40 +314,39 @@ class ProductTools:
             Deletion result
 
         Raises:
-            ToolError: If deletion fails
+            Exception: If deletion fails
         """
         try:
             logger.info(f"Deleting product: {product_code}")
 
             # Check if product exists
-            existing = self.product_manager.get_product(product_code)
+            existing = self._product_manager.get_product(product_code)
             if not existing:
-                raise ToolError(f"Product '{product_code}' not found")
+                raise Exception(f"Product '{product_code}' not found")
 
             # Delete product
-            success = self.product_manager.delete_product(product_code)
+            success = self._product_manager.delete_product(product_code)
 
             if success:
                 response = {
                     "success": True,
                     "message": f"Product '{product_code}' deleted successfully",
-                    "deleted_product": {
-                        "code": existing["code"],
-                        "name": existing["name"],
-                    },
+                    "deleted_product": serialize_datetime(
+                        {
+                            "code": existing["code"],
+                            "name": existing["name"],
+                        }
+                    ),
                 }
 
                 logger.info(f"Product deleted: {product_code}")
                 return response
             else:
-                raise ToolError(f"Failed to delete product '{product_code}'")
-
-        except ToolError:
-            raise
+                raise Exception(f"Failed to delete product '{product_code}'")
 
         except Exception as e:
             logger.error(f"Product deletion failed: {e}")
-            raise ToolError(f"Failed to delete product: {str(e)}")
+            raise Exception(f"Failed to delete product: {str(e)}")
 
     def list_products(
         self, ctx: Context, limit: int = 50, offset: int = 0
@@ -336,7 +362,7 @@ class ProductTools:
             Paginated list of products
 
         Raises:
-            ToolError: If listing fails
+            Exception: If listing fails
         """
         try:
             # Validate pagination parameters
@@ -347,7 +373,7 @@ class ProductTools:
             )
 
             # Get all products
-            all_products = self.product_manager.list_all_products()
+            all_products = self._product_manager.list_all_products()
 
             # Apply pagination
             total = len(all_products)
@@ -357,12 +383,15 @@ class ProductTools:
 
             # Format response
             product_list = [
-                {
-                    "code": product["code"],
-                    "name": product["name"],
-                    "created_at": product.get("created_at"),
-                }
+                serialize_datetime(
+                    {
+                        "code": product["code"],
+                        "name": product["name"],
+                        "created_at": product.get("created_at"),
+                    }
+                )
                 for product in paginated_products
+                if product
             ]
 
             response = {
@@ -371,75 +400,64 @@ class ProductTools:
                 "total": total,
                 "limit": pagination.limit,
                 "offset": pagination.offset,
-                "has_more": pagination.offset + pagination.limit < total,
             }
 
-            logger.info(f"Retrieved {len(product_list)} products")
+            logger.info(f"Listed {len(product_list)} products")
             return response
 
         except Exception as e:
-            logger.error(f"Failed to list products: {e}")
-            raise ToolError(f"Failed to list products: {str(e)}")
+            logger.error(f"Product listing failed: {e}")
+            raise Exception(f"Failed to list products: {str(e)}")
 
     def search_products(
         self, ctx: Context, query: str, limit: int = 50
     ) -> Dict[str, Any]:
-        """Search products by name or code.
+        """Search products by code or name with fuzzy matching.
 
         Args:
             ctx: MCP context
             query: Search query string
-            limit: Maximum number of results to return
+            limit: Maximum results to return (default: 50)
 
         Returns:
             Search results
 
         Raises:
-            ToolError: If search fails
+            Exception: If search fails
         """
         try:
+            logger.info(f"Searching products: query='{query}', limit={limit}")
+
             if not query or not query.strip():
-                raise ToolError("Search query is required")
+                raise Exception("Search query cannot be empty")
 
-            search_term = query.strip().lower()
-            logger.info(f"Searching products: '{search_term}'")
+            # Search products
+            results = self._product_manager.search_products(query.strip(), limit)
 
-            # Get all products and filter
-            all_products = self.product_manager.list_all_products()
-
-            filtered_products = []
-            for product in all_products:
-                if (
-                    search_term in product["code"].lower()
-                    or search_term in product["name"].lower()
-                ):
-                    filtered_products.append(
-                        {
-                            "code": product["code"],
-                            "name": product["name"],
-                            "created_at": product.get("created_at"),
-                        }
-                    )
-
-            # Limit results
-            results = filtered_products[:limit]
+            # Format response
+            product_list = [
+                serialize_datetime(
+                    {
+                        "code": product["code"],
+                        "name": product["name"],
+                        "created_at": product.get("created_at"),
+                    }
+                )
+                for product in results
+                if product
+            ]
 
             response = {
                 "success": True,
-                "query": search_term,
-                "results": results,
-                "total_found": len(filtered_products),
-                "returned": len(results),
+                "query": query,
+                "products": product_list,
+                "total": len(product_list),
+                "limit": limit,
             }
 
-            logger.info(
-                f"Search returned {len(results)} results for query: '{search_term}'"
-            )
+            logger.info(f"Product search completed: {len(product_list)} results")
             return response
-
-        except ToolError:
-            raise
 
         except Exception as e:
             logger.error(f"Product search failed: {e}")
-            raise ToolError(f"Failed to search products: {str(e)}")
+            raise Exception(f"Failed to search products: {str(e)}")

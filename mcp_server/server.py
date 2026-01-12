@@ -6,18 +6,18 @@ tools, and resources for product management.
 """
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Literal
 
-import uvicorn
-from fastmcp import FastMCP, Context, ToolError
+from fastmcp import FastMCP, Context
+from fastmcp.exceptions import ToolError
 from loguru import logger
 
-from mcp.auth.jwt_handler import JWTHandler
-from mcp.auth.middleware import AuthMiddleware
-from mcp.config.mcp_config import MCPServerConfig
-from mcp.tools.product_tools import ProductTools
-from mcp.tools.functionality_tools import FunctionalityTools
-from mcp.resources.product_resources import ProductResources
+from mcp_server.auth.jwt_handler import JWTHandler
+from mcp_server.auth.middleware import AuthMiddleware
+from mcp_server.config.mcp_config import MCPServerConfig
+from mcp_server.tools.product_tools import ProductTools
+from mcp_server.tools.functionality_tools import FunctionalityTools
+from mcp_server.resources.product_resources import ProductResources
 
 
 def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
@@ -36,12 +36,7 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
     logger.info(f"Initializing MCP server: {config.server_name}")
 
     # Create FastMCP server
-    mcp = FastMCP(
-        name=config.server_name,
-        transport=config.transport,
-        host=config.host,
-        port=config.port,
-    )
+    mcp = FastMCP(name=config.server_name)
 
     # Initialize authentication
     jwt_handler = JWTHandler(config.jwt_secret_key)
@@ -52,168 +47,142 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
     functionality_tools = FunctionalityTools(auth_middleware)
     product_resources = ProductResources(auth_middleware)
 
-    # Register authentication middleware
-    mcp.add_middleware(auth_middleware.require_auth)
-
-    # Register tools
+    # Register tools with decorators
     logger.info("Registering MCP tools...")
 
     # Product Management Tools
-    mcp.add_tool(
-        product_tools.register_product,
-        name="register_product",
-        description="Register a new product with optional functionalities. Validates required fields and creates relationships with functionalities according to the ontology model.",
-    )
+    @mcp.tool()
+    def register_product(
+        ctx: Context, code: str, name: str, functionalities: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """Register a new product with optional functionalities. Validates required fields and creates relationships with functionalities according to the ontology model."""
+        return product_tools.register_product(ctx, code, name, functionalities or [])
 
-    mcp.add_tool(
-        product_tools.get_product_details,
-        name="get_product_details",
-        description="Get detailed information about a specific product including functionalities, incidents, and resolutions.",
-    )
+    @mcp.tool()
+    def get_product_details(ctx: Context, code: str) -> Dict[str, Any]:
+        """Get detailed information about a specific product including functionalities, incidents, and resolutions."""
+        return product_tools.get_product_details(ctx, code)
 
-    mcp.add_tool(
-        product_tools.update_product,
-        name="update_product",
-        description="Update product information. Only provided fields are updated.",
-    )
+    @mcp.tool()
+    def update_product(
+        ctx: Context, code: str, name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Update product information. Only provided fields are updated."""
+        return product_tools.update_product(ctx, code, name)
 
-    mcp.add_tool(
-        product_tools.delete_product,
-        name="delete_product",
-        description="Delete a product and all its relationships including functionalities and incidents.",
-    )
+    @mcp.tool()
+    def delete_product(ctx: Context, code: str) -> Dict[str, Any]:
+        """Delete a product and all its relationships including functionalities and incidents."""
+        return product_tools.delete_product(ctx, code)
 
-    mcp.add_tool(
-        product_tools.list_products,
-        name="list_products",
-        description="List all products with pagination support.",
-    )
+    @mcp.tool()
+    def list_products(ctx: Context, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+        """List all products with pagination support."""
+        return product_tools.list_products(ctx, limit, offset)
 
-    mcp.add_tool(
-        product_tools.search_products,
-        name="search_products",
-        description="Search products by code or name with fuzzy matching.",
-    )
+    @mcp.tool()
+    def search_products(ctx: Context, query: str, limit: int = 50) -> Dict[str, Any]:
+        """Search products by code or name with fuzzy matching."""
+        return product_tools.search_products(ctx, query, limit)
 
     # Functionality Management Tools
-    mcp.add_tool(
-        functionality_tools.register_functionality,
-        name="register_functionality",
-        description="Register a new functionality for assignment to products.",
-    )
+    @mcp.tool()
+    def register_functionality(ctx: Context, code: str, name: str) -> Dict[str, Any]:
+        """Register a new functionality for assignment to products."""
+        return functionality_tools.register_functionality(ctx, code, name)
 
-    mcp.add_tool(
-        functionality_tools.get_functionality_details,
-        name="get_functionality_details",
-        description="Get detailed information about a specific functionality including products, components, incidents, and resolutions.",
-    )
+    @mcp.tool()
+    def get_functionality_details(ctx: Context, code: str) -> Dict[str, Any]:
+        """Get detailed information about a specific functionality including products, components, incidents, and resolutions."""
+        return functionality_tools.get_functionality_details(ctx, code)
 
-    mcp.add_tool(
-        functionality_tools.assign_functionalities_to_product,
-        name="assign_functionalities_to_product",
-        description="Assign multiple functionalities to a product in batch. Validates existence before assignment.",
-    )
+    @mcp.tool()
+    def assign_functionalities_to_product(
+        ctx: Context, product_code: str, functionality_codes: List[str]
+    ) -> Dict[str, Any]:
+        """Assign multiple functionalities to a product in batch. Validates existence before assignment."""
+        return functionality_tools.assign_functionalities_to_product(
+            ctx, product_code, functionality_codes
+        )
 
-    mcp.add_tool(
-        functionality_tools.remove_functionalities_from_product,
-        name="remove_functionalities_from_product",
-        description="Remove multiple functionalities from a product in batch.",
-    )
+    @mcp.tool()
+    def remove_functionalities_from_product(
+        ctx: Context, product_code: str, functionality_codes: List[str]
+    ) -> Dict[str, Any]:
+        """Remove multiple functionalities from a product in batch."""
+        return functionality_tools.remove_functionalities_from_product(
+            ctx, product_code, functionality_codes
+        )
 
-    mcp.add_tool(
-        functionality_tools.list_functionalities,
-        name="list_functionalities",
-        description="List all available functionalities with pagination support.",
-    )
+    @mcp.tool()
+    def list_functionalities(
+        ctx: Context, limit: int = 50, offset: int = 0
+    ) -> Dict[str, Any]:
+        """List all available functionalities with pagination support."""
+        return functionality_tools.list_functionalities(ctx, limit, offset)
 
     # Authentication Tools
-    mcp.add_tool(
-        authenticate_user,
-        name="authenticate_user",
-        description="Authenticate user credentials and return JWT token for API access.",
-        auth_required=False,  # No authentication required for login
-    )
+    @mcp.tool()
+    def authenticate_user(ctx: Context, username: str, password: str) -> Dict[str, Any]:
+        """Authenticate user credentials and return JWT token for API access."""
+        try:
+            # This bypasses auth middleware since login doesn't require authentication
+            jwt_handler = JWTHandler()
+            auth_middleware = AuthMiddleware(jwt_handler)
+            auth_result = auth_middleware.generate_auth_response(username, password)
 
-    # Register resources
+            logger.info(f"User authenticated: {username}")
+
+            return {
+                "success": True,
+                "message": "Authentication successful",
+                "username": username,
+                "token": auth_result["token"],
+                "expires_in": auth_result["expires_in"],
+            }
+
+        except Exception as e:
+            logger.error(f"Authentication failed: {e}")
+            raise ToolError(f"Authentication failed: {str(e)}")
+
+    # Register resources with decorators
     logger.info("Registering MCP resources...")
 
-    mcp.add_resource(
-        product_resources.products_resource,
-        uri="products://",
-        description="List all products with pagination. Supports query parameters: limit, offset",
-    )
+    @mcp.resource("products://{limit}_{offset}")
+    def products_resource(ctx: Context, limit: str, offset: str) -> Dict[str, Any]:
+        """List all products with pagination. Supports query parameters: limit, offset"""
+        return product_resources.products_resource(ctx, int(limit), int(offset))
 
-    mcp.add_resource(
-        product_resources.product_resource,
-        uri="product://{product_code}",
-        description="Access detailed information for a specific product",
-    )
+    @mcp.resource("product://{product_code}")
+    def product_resource(ctx: Context, product_code: str) -> Dict[str, Any]:
+        """Access detailed information for a specific product"""
+        return product_resources.product_resource(ctx, product_code)
 
-    mcp.add_resource(
-        product_resources.functionalities_resource,
-        uri="functionalities://",
-        description="List all available functionalities with pagination. Supports query parameters: limit, offset",
-    )
+    @mcp.resource("functionalities://{limit}_{offset}")
+    def functionalities_resource(
+        ctx: Context, limit: str, offset: str
+    ) -> Dict[str, Any]:
+        """List all available functionalities with pagination. Supports query parameters: limit, offset"""
+        return product_resources.functionalities_resource(ctx, int(limit), int(offset))
 
-    mcp.add_resource(
-        product_resources.search_resource,
-        uri="search://",
-        description="Search products and functionalities. Supports query parameters: query, type, limit",
-    )
+    @mcp.resource("search://{query}")
+    def search_resource(ctx: Context, query: str) -> Dict[str, Any]:
+        """Search products and functionalities. Supports query parameters: query, type, limit"""
+        return product_resources.search_resource(ctx, query, "", 50)
 
-    mcp.add_resource(
-        product_resources.schema_resource,
-        uri="schema://",
-        description="Access schema information for products, functionalities, or complete ontology. Supports query parameter: type",
-    )
+    @mcp.resource("schema://{type}")
+    def schema_resource(ctx: Context, type: str) -> Dict[str, Any]:
+        """Access schema information for products, functionalities, or complete ontology. Supports query parameter: type"""
+        return product_resources.schema_resource(ctx, type)
 
     # Server info resource
-    mcp.add_resource(
-        server_info_resource,
-        uri="server://info",
-        description="Get server information and status",
-    )
+    @mcp.resource("server://info")
+    def server_info(ctx: Context) -> Dict[str, Any]:
+        """Get server information and status"""
+        return server_info_resource(ctx)
 
-    logger.info(
-        f"MCP server initialized with {len(mcp.tools)} tools and {len(mcp.resources)} resources"
-    )
+    logger.info("MCP server initialized with tools and resources")
     return mcp
-
-
-def authenticate_user(ctx: Context, username: str, password: str) -> Dict[str, Any]:
-    """Authenticate user and generate JWT token.
-
-    Args:
-        ctx: MCP context
-        username: User's username
-        password: User's password
-
-    Returns:
-        Authentication result with JWT token
-
-    Raises:
-        ToolError: If authentication fails
-    """
-    try:
-        # This bypasses auth middleware since login doesn't require authentication
-        jwt_handler = JWTHandler()
-        auth_result = jwt_handler.generate_auth_response(username, password)
-
-        logger.info(f"User authenticated: {username}")
-
-        return {
-            "success": True,
-            "message": "Authentication successful",
-            "username": username,
-            "token": auth_result["token"],
-            "expires_in": auth_result["expires_in"],
-        }
-
-    except ToolError:
-        raise
-    except Exception as e:
-        logger.error(f"Authentication failed: {e}")
-        raise ToolError(f"Authentication failed: {str(e)}")
 
 
 def server_info_resource(ctx: Context) -> Dict[str, Any]:
@@ -226,7 +195,7 @@ def server_info_resource(ctx: Context) -> Dict[str, Any]:
         Server information and status
     """
     try:
-        from mcp.config.mcp_config import MCPServerConfig
+        from mcp_server.config.mcp_config import MCPServerConfig
 
         config = MCPServerConfig()
 
@@ -241,10 +210,6 @@ def server_info_resource(ctx: Context) -> Dict[str, Any]:
                 "port": config.port,
                 "status": "running",
                 "uptime": "0m",  # Would need to track actual uptime
-                "endpoints": {
-                    "tools": len(create_mcp_server().tools),
-                    "resources": len(create_mcp_server().resources),
-                },
             },
             "metadata": {
                 "api_version": "MCP/1.0",
@@ -282,22 +247,30 @@ def run_mcp_server(config: Optional[MCPServerConfig] = None) -> None:
     mcp = create_mcp_server(config)
 
     # Configure logging
-    logger.configure(**config.log_config)
+    logger.remove()
+    logger.add(
+        sink=lambda msg: print(msg, end=""),
+        level=config.log_level,
+        format="{time} | {level} | {message}",
+    )
 
     try:
+        # Run with transport
         if config.transport == "sse":
-            # Run with SSE transport using uvicorn
-            uvicorn.run(
-                mcp.app,
-                host=config.host,
-                port=config.port,
-                log_level=config.log_level.lower(),
-                access_log=config.log_requests,
-                reload=config.reload_on_change,
-            )
-        else:
-            # Run with stdio or websocket transport
+            mcp.run(transport="sse", host=config.host, port=config.port)
+        elif config.transport == "http":
+            mcp.run(transport="http", host=config.host, port=config.port)
+        elif config.transport == "stdio":
             mcp.run()
+        else:
+            # Use typing.cast for type compatibility
+            from typing import cast
+
+            mcp.run(
+                transport=cast(
+                    Literal["sse", "http", "stdio", "streamable-http"], config.transport
+                )
+            )
 
     except Exception as e:
         logger.error(f"MCP server failed to start: {e}")

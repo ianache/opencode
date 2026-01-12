@@ -6,17 +6,52 @@ in the Neo4j database through the ProductManager.
 """
 
 from typing import Any, Dict, List, Optional
+from datetime import datetime
 
-from fastmcp import Context, ToolError
+from fastmcp import Context
 from loguru import logger
 
 from graph.neo4j_client import create_neo4j_client
 from graph.product_manager import ProductManager
-from mcp.models.requests import (
+from mcp_server.auth.middleware import AuthMiddleware
+from mcp_server.models.requests import (
     FunctionalityRegistrationRequest,
     FunctionalityAssignmentRequest,
 )
-from mcp.models.responses import FunctionalityData, SuccessResponse
+from mcp_server.models.responses import FunctionalityData, SuccessResponse
+
+
+def serialize_datetime(dt_obj: Any) -> Any:
+    """Convert datetime objects to ISO strings for JSON serialization."""
+    # Handle None
+    if dt_obj is None:
+        return None
+
+    # Handle neo4j.time.DateTime specifically
+    if hasattr(dt_obj, "isoformat"):
+        return dt_obj.isoformat()
+
+    # Handle standard Python datetime
+    if isinstance(dt_obj, datetime):
+        return dt_obj.isoformat()
+
+    # Handle lists recursively
+    if isinstance(dt_obj, list):
+        return [serialize_datetime(item) for item in dt_obj]
+
+    # Handle dictionaries recursively
+    if isinstance(dt_obj, dict):
+        return {key: serialize_datetime(value) for key, value in dt_obj.items()}
+
+    # Handle other types (including neo4j.time.DateTime)
+    if hasattr(dt_obj, "year") and hasattr(dt_obj, "month") and hasattr(dt_obj, "day"):
+        # Try to convert neo4j DateTime-like objects
+        try:
+            return str(dt_obj)
+        except:
+            return dt_obj.__str__() if hasattr(dt_obj, "__str__") else dt_obj
+
+    return dt_obj
 
 
 class FunctionalityTools:
@@ -54,7 +89,7 @@ class FunctionalityTools:
             Functionality registration result
 
         Raises:
-            ToolError: If validation fails or functionality creation fails
+            Exception: If validation fails or functionality creation fails
         """
         try:
             # Validate input
@@ -70,11 +105,13 @@ class FunctionalityTools:
             response = {
                 "success": True,
                 "message": f"Functionality '{request.code}' registered successfully",
-                "functionality": {
-                    "code": functionality_node["code"],
-                    "name": functionality_node["name"],
-                    "created_at": functionality_node.get("created_at"),
-                },
+                "functionality": serialize_datetime(
+                    {
+                        "code": functionality_node["code"],
+                        "name": functionality_node["name"],
+                        "created_at": functionality_node.get("created_at"),
+                    }
+                ),
             }
 
             logger.info(f"Functionality registered: {request.code}")
@@ -82,11 +119,11 @@ class FunctionalityTools:
 
         except ValueError as e:
             logger.error(f"Functionality registration validation error: {e}")
-            raise ToolError(f"Validation error: {str(e)}")
+            raise Exception(f"Validation error: {str(e)}")
 
         except Exception as e:
             logger.error(f"Functionality registration failed: {e}")
-            raise ToolError(f"Failed to register functionality: {str(e)}")
+            raise Exception(f"Failed to register functionality: {str(e)}")
 
     def get_functionality_details(
         self, ctx: Context, functionality_code: str
@@ -101,7 +138,7 @@ class FunctionalityTools:
             Functionality details with products and components
 
         Raises:
-            ToolError: If functionality is not found or access fails
+            Exception: If functionality is not found or access fails
         """
         try:
             logger.info(f"Getting functionality details: {functionality_code}")
@@ -111,7 +148,7 @@ class FunctionalityTools:
             )
 
             if not functionality_details or not functionality_details.get("f"):
-                raise ToolError(f"Functionality '{functionality_code}' not found")
+                raise Exception(f"Functionality '{functionality_code}' not found")
 
             functionality = functionality_details["f"]
             products = functionality_details.get("products", [])
@@ -121,45 +158,57 @@ class FunctionalityTools:
 
             response = {
                 "success": True,
-                "functionality": {
-                    "code": functionality["code"],
-                    "name": functionality["name"],
-                    "created_at": functionality.get("created_at"),
-                },
-                "products": [
+                "functionality": serialize_datetime(
                     {
-                        "code": prod["code"],
-                        "name": prod["name"],
-                        "created_at": prod.get("created_at"),
+                        "code": functionality["code"],
+                        "name": functionality["name"],
+                        "created_at": functionality.get("created_at"),
                     }
+                ),
+                "products": [
+                    serialize_datetime(
+                        {
+                            "code": prod["code"],
+                            "name": prod["name"],
+                            "created_at": prod.get("created_at"),
+                        }
+                    )
                     for prod in products
+                    if prod
                 ],
                 "components": [
-                    {
-                        "code": comp["code"],
-                        "name": comp["name"],
-                        "created_at": comp.get("created_at"),
-                    }
+                    serialize_datetime(
+                        {
+                            "code": comp["code"],
+                            "name": comp["name"],
+                            "created_at": comp.get("created_at"),
+                        }
+                    )
                     for comp in components
+                    if comp
                 ],
                 "incident_count": len(incidents),
                 "incidents": [
-                    {
-                        "code": inc["code"],
-                        "description": inc["description"],
-                        "sla_level": inc["sla_level"],
-                        "created_at": inc.get("created_at"),
-                    }
+                    serialize_datetime(
+                        {
+                            "code": inc["code"],
+                            "description": inc["description"],
+                            "sla_level": inc["sla_level"],
+                            "created_at": inc.get("created_at"),
+                        }
+                    )
                     for inc in incidents
                 ],
                 "resolution_count": len(resolutions),
                 "resolutions": [
-                    {
-                        "incident_code": res["incident_code"],
-                        "procedure": res["procedure"],
-                        "resolution_date": res.get("resolution_date"),
-                        "created_at": res.get("created_at"),
-                    }
+                    serialize_datetime(
+                        {
+                            "incident_code": res["incident_code"],
+                            "procedure": res["procedure"],
+                            "resolution_date": res.get("resolution_date"),
+                            "created_at": res.get("created_at"),
+                        }
+                    )
                     for res in resolutions
                 ],
             }
@@ -167,12 +216,9 @@ class FunctionalityTools:
             logger.info(f"Retrieved functionality details: {functionality_code}")
             return response
 
-        except ToolError:
-            raise
-
         except Exception as e:
             logger.error(f"Failed to get functionality details: {e}")
-            raise ToolError(f"Failed to retrieve functionality details: {str(e)}")
+            raise Exception(f"Failed to retrieve functionality details: {str(e)}")
 
     def assign_functionalities_to_product(
         self, ctx: Context, product_code: str, functionality_codes: List[str]
@@ -188,7 +234,7 @@ class FunctionalityTools:
             Assignment result
 
         Raises:
-            ToolError: If assignment fails
+            Exception: If assignment fails
         """
         try:
             # Validate input
@@ -203,7 +249,7 @@ class FunctionalityTools:
             # Check if product exists
             product = self.product_manager.get_product(request.product_code)
             if not product:
-                raise ToolError(f"Product '{request.product_code}' not found")
+                raise Exception(f"Product '{request.product_code}' not found")
 
             # Assign functionalities
             successful_assignments = []
@@ -267,11 +313,11 @@ class FunctionalityTools:
 
         except ValueError as e:
             logger.error(f"Functionality assignment validation error: {e}")
-            raise ToolError(f"Validation error: {str(e)}")
+            raise Exception(f"Validation error: {str(e)}")
 
         except Exception as e:
             logger.error(f"Functionality assignment failed: {e}")
-            raise ToolError(f"Failed to assign functionalities: {str(e)}")
+            raise Exception(f"Failed to assign functionalities: {str(e)}")
 
     def remove_functionalities_from_product(
         self, ctx: Context, product_code: str, functionality_codes: List[str]
@@ -287,11 +333,11 @@ class FunctionalityTools:
             Removal result
 
         Raises:
-            ToolError: If removal fails
+            Exception: If removal fails
         """
         try:
             if not functionality_codes:
-                raise ToolError("At least one functionality code must be provided")
+                raise Exception("At least one functionality code must be provided")
 
             logger.info(
                 f"Removing {len(functionality_codes)} functionalities from product: {product_code}"
@@ -300,7 +346,7 @@ class FunctionalityTools:
             # Check if product exists
             product = self.product_manager.get_product(product_code)
             if not product:
-                raise ToolError(f"Product '{product_code}' not found")
+                raise Exception(f"Product '{product_code}' not found")
 
             # Remove functionalities
             successful_removals = []
@@ -345,12 +391,9 @@ class FunctionalityTools:
             )
             return response
 
-        except ToolError:
-            raise
-
         except Exception as e:
             logger.error(f"Functionality removal failed: {e}")
-            raise ToolError(f"Failed to remove functionalities: {str(e)}")
+            raise Exception(f"Failed to remove functionalities: {str(e)}")
 
     def list_functionalities(
         self, ctx: Context, limit: int = 50, offset: int = 0
@@ -366,49 +409,51 @@ class FunctionalityTools:
             Paginated list of functionalities
 
         Raises:
-            ToolError: If listing fails
+            Exception: If listing fails
         """
         try:
             # Validate pagination parameters
             if not (1 <= limit <= 1000):
-                raise ToolError("Limit must be between 1 and 1000")
+                raise Exception("Limit must be between1 and 1000")
             if offset < 0:
-                raise ToolError("Offset must be non-negative")
+                raise Exception("Offset must be non-negative")
 
             logger.info(f"Listing functionalities: limit={limit}, offset={offset}")
 
-            # Get all functionalities through products query
-            # Since ProductManager doesn't have direct list_functionalities,
-            # we'll get them from product relationships
-            products_summary = self.product_manager.get_all_products_summary()
+            # Get all functionalities using the new list_functionalities method
+            all_functionalities = self.product_manager.list_functionalities()
 
-            # Collect unique functionalities from all products
-            all_functionalities = set()
-            functionality_details = {}
+            # Apply pagination
+            total = len(all_functionalities)
+            paginated_functionalities = all_functionalities[offset : offset + limit]
 
-            for product_summary in products_summary:
-                # This is a simplified approach - in production,
-                # we might need a dedicated query
-                pass
+            # Format response
+            functionality_list = [
+                serialize_datetime(
+                    {
+                        "code": func["code"],
+                        "name": func["name"],
+                        "created_at": func.get("created_at"),
+                    }
+                )
+                for func in paginated_functionalities
+            ]
 
-            # For now, return a simple response structure
-            # This would need to be enhanced with actual functionality listing
             response = {
                 "success": True,
-                "functionalities": [],
-                "total": 0,
+                "functionalities": functionality_list,
+                "total": total,
                 "limit": limit,
                 "offset": offset,
-                "has_more": False,
-                "note": "Functionality listing requires enhanced ProductManager implementation",
+                "has_more": offset + limit < total,
             }
 
             logger.info("Functionality listing completed")
             return response
 
-        except ToolError:
-            raise
+            logger.info("Functionality listing completed")
+            return response
 
         except Exception as e:
             logger.error(f"Failed to list functionalities: {e}")
-            raise ToolError(f"Failed to list functionalities: {str(e)}")
+            raise Exception(f"Failed to list functionalities: {str(e)}")
