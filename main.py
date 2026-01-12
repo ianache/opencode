@@ -138,6 +138,12 @@ def main() -> None:
         "--feature1", action="store_true", help="Run Feature 1: Product Management demo"
     )
     parser.add_argument(
+        "--feature2", action="store_true", help="Run Feature 2: MCP API Server"
+    )
+    parser.add_argument(
+        "--feature2", action="store_true", help="Run Feature 2: MCP API Server"
+    )
+    parser.add_argument(
         "--load-sample", action="store_true", help="Load sample data for Feature 1"
     )
     parser.add_argument(
@@ -171,6 +177,31 @@ def main() -> None:
             # Handle command line arguments
             if args.feature1:
                 demo_feature1(neo4j_client)
+            elif args.feature2:
+                print("\n" + "=" * 60)
+                print("FEATURE 2 DEMO: MCP API SERVER")
+                print("=" * 60)
+                print("Starting Product Management MCP Server...")
+                print("API Documentation: http://localhost:8000/server://info")
+                print("Neo4j Browser: http://localhost:7474")
+                print("Press Ctrl+C to stop the server")
+                print("=" * 60)
+
+                # Import and run MCP server
+                try:
+                    from mcp_server.server import run_mcp_server
+                    from mcp_server.config.mcp_config import MCPServerConfig
+
+                    config = MCPServerConfig()
+                    run_mcp_server(config)
+                except ImportError as e:
+                    print(f"❌ Failed to import MCP server: {e}")
+                    print("Make sure all dependencies are installed:")
+                    print("  uv add fastmcp uvicorn fastapi pyjwt cryptography")
+                except KeyboardInterrupt:
+                    print("\n🛑 MCP Server stopped by user")
+                except Exception as e:
+                    print(f"❌ MCP Server error: {e}")
             elif args.load_sample:
                 product_manager = ProductManager(neo4j_client)
                 sample_loader = SampleDataLoader(product_manager)

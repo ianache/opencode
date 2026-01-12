@@ -1,0 +1,42 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.0 Chrome/140.0.7339.249 Electron/38.7.2 Safari/537.36" version="29.3.0">
+  <diagram name="Page-1" id="I115G1BoKsb3c-m1XpHZ">
+    <mxGraphModel dx="908" dy="589" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="bWv7V82HWk5PSqO_hNrA-9" edge="1" parent="1" source="bWv7V82HWk5PSqO_hNrA-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;endArrow=blockThin;endFill=1;" target="bWv7V82HWk5PSqO_hNrA-1" value="2. Send Request&amp;nbsp;&lt;div&gt;with token JWT&lt;/div&gt;">
+          <mxGeometry relative="1" y="20" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bWv7V82HWk5PSqO_hNrA-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;shadow=1;strokeColor=none;" value="" vertex="1">
+          <mxGeometry height="110" width="70" x="190" y="215" as="geometry" />
+        </mxCell>
+        <mxCell id="bWv7V82HWk5PSqO_hNrA-5" edge="1" parent="1" source="bWv7V82HWk5PSqO_hNrA-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;endArrow=blockThin;endFill=1;" target="bWv7V82HWk5PSqO_hNrA-4" value="3. Validate token JWT">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="bWv7V82HWk5PSqO_hNrA-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;b&gt;FastMCP&lt;/b&gt;&lt;div&gt;Product MCP Server&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="380" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="bWv7V82HWk5PSqO_hNrA-2" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=11.196066463694876;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;" value="Neo4J" vertex="1">
+          <mxGeometry height="60" width="60" x="650" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="bWv7V82HWk5PSqO_hNrA-3" edge="1" parent="1" source="bWv7V82HWk5PSqO_hNrA-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;startArrow=blockThin;startFill=1;endArrow=blockThin;endFill=1;" target="bWv7V82HWk5PSqO_hNrA-2" value="4. Cypher Queries">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="bWv7V82HWk5PSqO_hNrA-4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;b&gt;FastMCP&lt;/b&gt;&lt;div&gt;Product MCP Server&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="380" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="bWv7V82HWk5PSqO_hNrA-7" edge="1" parent="1" source="bWv7V82HWk5PSqO_hNrA-8" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;edgeStyle=orthogonalEdgeStyle;endArrow=blockThin;endFill=1;" target="bWv7V82HWk5PSqO_hNrA-4" value="1. Request JWT">
+          <mxGeometry relative="1" x="0.3044" y="20" as="geometry">
+            <mxPoint x="-1" as="offset" />
+            <mxPoint x="220" y="350" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bWv7V82HWk5PSqO_hNrA-6" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="Consumer" vertex="1">
+          <mxGeometry height="60" width="30" x="210" y="235" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -12,6 +12,12 @@ dependencies = [
     "pandas>=2.3.3",
     "python-dotenv>=1.0.0",
     "loguru>=0.7.0",
+    "fastmcp>=2.14.0",
+    "pyjwt>=2.8.0",
+    "cryptography>=41.0.0",
+    "uvicorn[standard]>=0.24.0",
+    "pydantic>=2.5.0",
+    "fastapi>=0.104.0",
 ]
 
 

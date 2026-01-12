@@ -1,0 +1,48 @@
+# Multi-stage build for production
+FROM python:3.12-slim as builder
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN pip install uv
+
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies
+RUN uv sync --frozen
+
+# Copy application code
+COPY mcp_server/ ./mcp_server/
+COPY config/ ./config/
+COPY graph/ ./graph/
+COPY data/ ./data/
+COPY utils/ ./utils/
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash mcp
+RUN chown -R mcp:mcp /app
+USER mcp
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/server://info', timeout=5)" || exit 1
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV MCP_HOST=0.0.0.0
+ENV MCP_PORT=8000
+ENV MCP_TRANSPORT=sse
+
+# Run the application
+CMD ["uv", "run", "python", "-m", "mcp_server.server", "--host", "0.0.0.0", "--port", "8000"]
