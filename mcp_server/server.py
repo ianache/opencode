@@ -17,6 +17,7 @@ from mcp_server.auth.middleware import AuthMiddleware
 from mcp_server.config.mcp_config import MCPServerConfig
 from mcp_server.tools.product_tools import ProductTools
 from mcp_server.tools.functionality_tools import FunctionalityTools
+from mcp_server.tools.incident_tools import IncidentTools
 from mcp_server.resources.product_resources import ProductResources
 
 
@@ -45,6 +46,7 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
     # Initialize tools and resources
     product_tools = ProductTools(auth_middleware)
     functionality_tools = FunctionalityTools(auth_middleware)
+    incident_tools = IncidentTools(auth_middleware)
     product_resources = ProductResources(auth_middleware)
 
     # Register tools with decorators
@@ -120,6 +122,49 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
     ) -> Dict[str, Any]:
         """List all available functionalities with pagination support."""
         return functionality_tools.list_functionalities(ctx, limit, offset)
+
+    # Incident Management Tools
+    @mcp.tool()
+    def register_incident(
+        ctx: Context,
+        code: str,
+        description: str,
+        sla_level: str,
+        functionality_code: str,
+    ) -> Dict[str, Any]:
+        """Register a new incident for a functionality. All fields from ontological model must be provided. Returns Spanish error message 'Datos incompletos proporcionados' if data is incomplete."""
+        from mcp_server.models.requests import IncidentRegistrationRequest
+
+        incident_data = IncidentRegistrationRequest(
+            code=code,
+            description=description,
+            sla_level=sla_level,
+            functionality_code=functionality_code,
+        )
+        return incident_tools.register_incident(ctx, incident_data)
+
+    @mcp.tool()
+    def get_incident_details(ctx: Context, incident_code: str) -> Dict[str, Any]:
+        """Get detailed information about a specific incident."""
+        return incident_tools.get_incident_details(ctx, incident_code)
+
+    @mcp.tool()
+    def list_incidents_by_functionality(
+        ctx: Context, functionality_code: str, limit: int = 50, offset: int = 0
+    ) -> Dict[str, Any]:
+        """List all incidents for a specific functionality with pagination support."""
+        return incident_tools.list_incidents_by_functionality(
+            ctx, functionality_code, limit, offset
+        )
+
+    @mcp.tool()
+    def list_incidents_by_product(
+        ctx: Context, product_code: str, limit: int = 50, offset: int = 0
+    ) -> Dict[str, Any]:
+        """List all incidents for a specific product with pagination support."""
+        return incident_tools.list_incidents_by_product(
+            ctx, product_code, limit, offset
+        )
 
     # Authentication Tools
     @mcp.tool()
