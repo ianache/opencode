@@ -30,6 +30,9 @@ class MCPServerConfig(BaseSettings):
     jwt_secret_key: str = Field(
         default="", description="JWT secret key for authentication"
     )
+    jwt_secret_key_file: str = Field(
+        default="", description="Path to JWT secret key file (for Docker secrets)"
+    )
     jwt_expiry_hours: int = Field(default=24, description="JWT token expiry in hours")
 
     # Neo4j Configuration
@@ -84,10 +87,12 @@ class MCPServerConfig(BaseSettings):
 
     def _validate_config(self) -> None:
         """Validate configuration settings."""
-        if self.auth_enabled and not self.jwt_secret_key:
-            raise ValueError(
-                "JWT_SECRET_KEY must be set when authentication is enabled"
-            )
+        if self.auth_enabled:
+            jwt_secret = self.jwt_secret_key or self._get_jwt_secret_from_file()
+            if not jwt_secret:
+                raise ValueError(
+                    "JWT_SECRET_KEY or JWT_SECRET_KEY_FILE must be set when authentication is enabled"
+                )
 
         if self.transport not in ["sse", "stdio", "websocket"]:
             raise ValueError(
@@ -96,6 +101,17 @@ class MCPServerConfig(BaseSettings):
 
         if not (1 <= self.port <= 65535):
             raise ValueError("Port must be between 1 and 65535")
+
+    def _get_jwt_secret_from_file(self) -> Optional[str]:
+        """Get JWT secret from file if configured."""
+        secret_file = self.jwt_secret_key_file
+        if secret_file and os.path.exists(secret_file):
+            try:
+                with open(secret_file, "r", encoding="utf-8") as f:
+                    return f.read().strip()
+            except Exception:
+                return None
+        return None
 
     def get_cors_config(self) -> dict:
         """Get CORS configuration for FastAPI."""

@@ -21,16 +21,45 @@ class JWTHandler:
 
     def __init__(self, secret_key: Optional[str] = None):
         """Initialize JWT handler with secret key."""
-        self.secret_key = secret_key or os.getenv(
-            "JWT_SECRET_KEY", "default-secret-change-in-production"
-        )
+        # Support both direct key and file-based secrets (for Docker)
+        secret_key = secret_key or self._get_secret_from_env()
+
+        if not secret_key:
+            raise ValueError(
+                "JWT_SECRET_KEY or JWT_SECRET_KEY_FILE environment variable is required"
+            )
+
+        if len(secret_key) < 32:
+            raise ValueError(
+                "JWT_SECRET_KEY must be at least 32 characters long for security"
+            )
+
+        # Type assertion for type checker - we've validated it's not None
+        self.secret_key = secret_key  # type: ignore
         self.algorithm = "HS256"
         self.token_expiry = timedelta(hours=24)
+        logger.info(
+            f"JWT handler initialized with secure secret key (length: {len(secret_key)})"
+        )
+        logger.debug(f"JWT secret key (first 10 chars): {secret_key[:10]}...")
 
-        if self.secret_key == "default-secret-change-in-production":
-            logger.warning(
-                "Using default JWT secret key - please set JWT_SECRET_KEY environment variable"
-            )
+    def _get_secret_from_env(self) -> Optional[str]:
+        """Get secret key from environment or file."""
+        # Direct environment variable
+        secret = os.getenv("JWT_SECRET_KEY")
+        if secret:
+            return secret
+
+        # File-based secret (Docker secrets)
+        secret_file = os.getenv("JWT_SECRET_KEY_FILE")
+        if secret_file and os.path.exists(secret_file):
+            try:
+                with open(secret_file, "r", encoding="utf-8") as f:
+                    return f.read().strip()
+            except Exception as e:
+                logger.error(f"Failed to read JWT secret from file {secret_file}: {e}")
+
+        return None
 
     def generate_token(
         self, user_id: str, additional_claims: Optional[Dict[str, Any]] = None
@@ -110,6 +139,9 @@ class JWTHandler:
         """
         payload = self.validate_token(token)
         user_id = payload.get("sub")
+
+        if not user_id:
+            raise ValueError("Token does not contain valid user identifier")
 
         # Remove time-sensitive claims
         refresh_payload = {

@@ -57,12 +57,28 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
     def register_product(
         ctx: Context, code: str, name: str, functionalities: Optional[List[str]] = None
     ) -> Dict[str, Any]:
-        """Register a new product with optional functionalities. Validates required fields and creates relationships with functionalities according to the ontology model."""
+        """Register a new product with optional functionalities. Validates required fields and creates relationships with functionalities according to ontology model."""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return product_tools.register_product(ctx, code, name, functionalities or [])
 
     @mcp.tool()
     def get_product_details(ctx: Context, code: str) -> Dict[str, Any]:
         """Get detailed information about a specific product including functionalities, incidents, and resolutions."""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return product_tools.get_product_details(ctx, code)
 
     @mcp.tool()
@@ -70,32 +86,78 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
         ctx: Context, code: str, name: Optional[str] = None
     ) -> Dict[str, Any]:
         """Update product information. Only provided fields are updated."""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
         return product_tools.update_product(ctx, code, name)
 
     @mcp.tool()
     def delete_product(ctx: Context, code: str) -> Dict[str, Any]:
         """Delete a product and all its relationships including functionalities and incidents."""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
         return product_tools.delete_product(ctx, code)
 
     @mcp.tool()
     def list_products(ctx: Context, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
         """List all products with pagination support."""
+        # Debug logging
+        print(f"[DEBUG] list_products called with context: {type(ctx)}")
+        print(f"[DEBUG] Context dir: {dir(ctx)}")
+
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return product_tools.list_products(ctx, limit, offset)
 
     @mcp.tool()
     def search_products(ctx: Context, query: str, limit: int = 50) -> Dict[str, Any]:
         """Search products by code or name with fuzzy matching."""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
         return product_tools.search_products(ctx, query, limit)
 
     # Functionality Management Tools
     @mcp.tool()
     def register_functionality(ctx: Context, code: str, name: str) -> Dict[str, Any]:
         """Register a new functionality for assignment to products."""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return functionality_tools.register_functionality(ctx, code, name)
 
     @mcp.tool()
     def get_functionality_details(ctx: Context, code: str) -> Dict[str, Any]:
         """Get detailed information about a specific functionality including products, components, incidents, and resolutions."""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return functionality_tools.get_functionality_details(ctx, code)
 
     @mcp.tool()
@@ -103,6 +165,14 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
         ctx: Context, product_code: str, functionality_codes: List[str]
     ) -> Dict[str, Any]:
         """Assign multiple functionalities to a product in batch. Validates existence before assignment."""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return functionality_tools.assign_functionalities_to_product(
             ctx, product_code, functionality_codes
         )
@@ -112,6 +182,14 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
         ctx: Context, product_code: str, functionality_codes: List[str]
     ) -> Dict[str, Any]:
         """Remove multiple functionalities from a product in batch."""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return functionality_tools.remove_functionalities_from_product(
             ctx, product_code, functionality_codes
         )
@@ -121,6 +199,14 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
         ctx: Context, limit: int = 50, offset: int = 0
     ) -> Dict[str, Any]:
         """List all available functionalities with pagination support."""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return functionality_tools.list_functionalities(ctx, limit, offset)
 
     # Incident Management Tools
@@ -133,6 +219,14 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
         functionality_code: str,
     ) -> Dict[str, Any]:
         """Register a new incident for a functionality. All fields from ontological model must be provided. Returns Spanish error message 'Datos incompletos proporcionados' if data is incomplete."""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         from mcp_server.models.requests import IncidentRegistrationRequest
 
         incident_data = IncidentRegistrationRequest(
@@ -146,6 +240,14 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
     @mcp.tool()
     def get_incident_details(ctx: Context, incident_code: str) -> Dict[str, Any]:
         """Get detailed information about a specific incident."""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return incident_tools.get_incident_details(ctx, incident_code)
 
     @mcp.tool()
@@ -153,6 +255,14 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
         ctx: Context, functionality_code: str, limit: int = 50, offset: int = 0
     ) -> Dict[str, Any]:
         """List all incidents for a specific functionality with pagination support."""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return incident_tools.list_incidents_by_functionality(
             ctx, functionality_code, limit, offset
         )
@@ -162,6 +272,14 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
         ctx: Context, product_code: str, limit: int = 50, offset: int = 0
     ) -> Dict[str, Any]:
         """List all incidents for a specific product with pagination support."""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return incident_tools.list_incidents_by_product(
             ctx, product_code, limit, offset
         )
@@ -196,11 +314,27 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
     @mcp.resource("products://{limit}_{offset}")
     def products_resource(ctx: Context, limit: str, offset: str) -> Dict[str, Any]:
         """List all products with pagination. Supports query parameters: limit, offset"""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return product_resources.products_resource(ctx, int(limit), int(offset))
 
     @mcp.resource("product://{product_code}")
     def product_resource(ctx: Context, product_code: str) -> Dict[str, Any]:
         """Access detailed information for a specific product"""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return product_resources.product_resource(ctx, product_code)
 
     @mcp.resource("functionalities://{limit}_{offset}")
@@ -208,16 +342,40 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
         ctx: Context, limit: str, offset: str
     ) -> Dict[str, Any]:
         """List all available functionalities with pagination. Supports query parameters: limit, offset"""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return product_resources.functionalities_resource(ctx, int(limit), int(offset))
 
     @mcp.resource("search://{query}")
     def search_resource(ctx: Context, query: str) -> Dict[str, Any]:
         """Search products and functionalities. Supports query parameters: query, type, limit"""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return product_resources.search_resource(ctx, query, "", 50)
 
     @mcp.resource("schema://{type}")
     def schema_resource(ctx: Context, type: str) -> Dict[str, Any]:
         """Access schema information for products, functionalities, or complete ontology. Supports query parameter: type"""
+        # Check authentication inside function
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        payload = auth_middleware.jwt_handler.validate_token(auth_token)
+        logger.info(f"Authenticated request from user: {payload.get('sub')}")
+
         return product_resources.schema_resource(ctx, type)
 
     # Server info resource

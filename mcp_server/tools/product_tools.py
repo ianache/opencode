@@ -64,7 +64,7 @@ def serialize_datetime(dt_obj: Any) -> Any:
 class ProductTools:
     """MCP tools for product management."""
 
-    def __init__(self, auth_middleware: AuthMiddleware):
+    def __init__(self, auth_middleware: Optional[AuthMiddleware] = None):
         """Initialize ProductTools with authentication middleware."""
         self.auth_middleware = auth_middleware
         self._product_manager = ProductManager(create_neo4j_client())

@@ -1,5 +1,11 @@
 version: '3.8'
 
+secrets:
+  jwt_secret_key:
+    external: false
+  neo4j_password:
+    external: false
+
 services:
   # Neo4j Database Service
   neo4j:
@@ -11,8 +17,10 @@ services:
       - "127.0.0.1:7687:7687"  # Bolt protocol
     environment:
       # Basic authentication
-      NEO4J_AUTH: neo4j/admin123
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
       NEO4J_PLUGINS: '["apoc", "gds"]'
+      NEO4J_AUTH_ENABLED: "true"
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
       
       # Memory settings for development
       NEO4J_dbms_memory_heap_initial__size: 512m
@@ -34,8 +42,10 @@ services:
     
     networks:
       - graphrag-network
+    secrets:
+      - neo4j_password
     healthcheck:
-      test: ["CMD-SHELL", "cypher-shell -u neo4j -p admin123 'RETURN 1;' || exit 1"]
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p ${NEO4J_PASSWORD} 'RETURN 1;' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -52,20 +62,20 @@ services:
       - "127.0.0.1:8000:8000"  # SSE transport
     environment:
       # Server Configuration
-      MCP_HOST: 0.0.0.0
-      MCP_PORT: 8000
-      MCP_TRANSPORT: sse
-      MCP_SERVER_NAME: "Product Management MCP Server"
+      MCP_SERVER_NAME: "GraphRAG MCP Server"
+      MCP_HOST: "0.0.0.0"
+      MCP_PORT: "8000"
+      MCP_TRANSPORT: "sse"
       
       # Authentication Configuration
       MCP_AUTH_ENABLED: "true"
-      MCP_JWT_SECRET_KEY: "your-super-secret-jwt-key-change-in-production"
+      MCP_JWT_SECRET_KEY_FILE: /run/secrets/jwt_secret_key
       MCP_JWT_EXPIRY_HOURS: "24"
       
       # Neo4j Configuration
       MCP_NEO4J_URI: bolt://neo4j:7687
       MCP_NEO4J_USERNAME: neo4j
-      MCP_NEO4J_PASSWORD: admin123
+      MCP_NEO4J_PASSWORD_FILE: /run/secrets/neo4j_password
       MCP_NEO4J_DATABASE: graphrag
       
       # Security Configuration
@@ -80,6 +90,9 @@ services:
       # Development Configuration
       MCP_DEBUG_MODE: "false"
       MCP_RELOAD_ON_CHANGE: "false"
+    secrets:
+      - jwt_secret_key
+      - neo4j_password
     
     networks:
       - graphrag-network

@@ -1,0 +1,11 @@
+{
+     "mcpServers": {
+       "sse-server": {
+         "type": "sse",
+         "url": "http://127.0.0.1:8000/sse",
+         "headers": {
+           "authorization": "Bearer d2VsY29tZTE3Zks5eiRtUDJ3TCNNNXZSOHhKMmJiWTQmcVoxKnVBNl50RDkoc0YzKWhH"
+         }
+       }
+     }
+}

@@ -20,6 +20,24 @@ A Python-based Graph Retrieval-Augmented Generation (GraphRAG) application that 
 
 ## 🛠️ Installation
 
+### Using Vibe-Kanban
+
+```bash
+npx vibe-kanban
+```
+
+### Test with inspector
+
+```
+npx @modelcontextprotocol/inspector
+```
+
+### Run MCP Server
+
+```
+uv run python -m mcp_server.server --transport sse
+```
+
 ### Using uv (Recommended)
 
 ```bash
