@@ -320,6 +320,16 @@ Error: Missing required environment variables: NEO4J_PASSWORD
 2. Fill in missing values
 3. Ensure `.env` is not committed to version control
 
+#### Generate Token JWT
+
+```python 
+from mcp_server.auth.jwt_handler import JWTHandler
+secret_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImlhdCI6MTc2ODM2MDUzOSwiZXhwIjoxNzY4NDQ2OTM5LCJpc3MiOiJncmFwaHJhZy1tY3Atc2VydmVyIiwiYXVkIjoiZ3JhcGhyYWctY29uc3VtZXJzIiwidXNlcm5hbWUiOiJhZG1pbiIsInR5cGUiOiJ1c2VyIn0.hc-Lc70wu8nGpelJnXQMq4Nz3IUo9vyfvbe6z51R3NI'
+jwt = JWTHandler(secret_key)
+token = jwt.generate_user_token('admin')
+print(f'Token válido con secret key del servidor: {token}')
+```
+
 #### Test Failures
 
 ```

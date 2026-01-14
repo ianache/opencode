@@ -43,6 +43,20 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
     jwt_handler = JWTHandler(config.jwt_secret_key)
     auth_middleware = AuthMiddleware(jwt_handler)
 
+    def authenticate_and_get_user(ctx: Context) -> Dict[str, Any]:
+        """Helper function to authenticate and get user info from context."""
+        auth_token = auth_middleware._extract_token_from_context(ctx)
+        if not auth_token:
+            raise ToolError("Authentication required: No token provided")
+
+        try:
+            payload = auth_middleware.jwt_handler.validate_token(auth_token)
+            logger.info(f"Authenticated request from user: {payload.get('sub')}")
+            return payload
+        except Exception as e:
+            logger.warning(f"Authentication failed: {str(e)}")
+            raise ToolError(f"Authentication failed: Invalid token")
+
     # Initialize tools and resources
     product_tools = ProductTools(auth_middleware)
     functionality_tools = FunctionalityTools(auth_middleware)
@@ -76,10 +90,13 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
         if not auth_token:
             raise ToolError("Authentication required: No token provided")
 
-        payload = auth_middleware.jwt_handler.validate_token(auth_token)
-        logger.info(f"Authenticated request from user: {payload.get('sub')}")
-
-        return product_tools.get_product_details(ctx, code)
+        try:
+            payload = auth_middleware.jwt_handler.validate_token(auth_token)
+            logger.info(f"Authenticated request from user: {payload.get('sub')}")
+            return product_tools.get_product_details(ctx, code)
+        except Exception as e:
+            logger.warning(f"Authentication failed: {str(e)}")
+            raise ToolError(f"Authentication failed: Invalid token")
 
     @mcp.tool()
     def update_product(
@@ -91,8 +108,13 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
         if not auth_token:
             raise ToolError("Authentication required: No token provided")
 
-        payload = auth_middleware.jwt_handler.validate_token(auth_token)
-        return product_tools.update_product(ctx, code, name)
+        try:
+            payload = auth_middleware.jwt_handler.validate_token(auth_token)
+            logger.info(f"Authenticated request from user: {payload.get('sub')}")
+            return product_tools.update_product(ctx, code, name)
+        except Exception as e:
+            logger.warning(f"Authentication failed: {str(e)}")
+            raise ToolError(f"Authentication failed: Invalid token")
 
     @mcp.tool()
     def delete_product(ctx: Context, code: str) -> Dict[str, Any]:
@@ -102,36 +124,22 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
         if not auth_token:
             raise ToolError("Authentication required: No token provided")
 
-        payload = auth_middleware.jwt_handler.validate_token(auth_token)
-        return product_tools.delete_product(ctx, code)
+        try:
+            payload = auth_middleware.jwt_handler.validate_token(auth_token)
+            logger.info(f"Authenticated request from user: {payload.get('sub')}")
+            return product_tools.delete_product(ctx, code)
+        except Exception as e:
+            logger.warning(f"Authentication failed: {str(e)}")
+            raise ToolError(f"Authentication failed: Invalid token")
 
     @mcp.tool()
     def list_products(ctx: Context, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
         """List all products with pagination support."""
-        # Debug logging
-        print(f"[DEBUG] list_products called with context: {type(ctx)}")
-        print(f"[DEBUG] Context dir: {dir(ctx)}")
+        # Authenticate request
+        authenticate_and_get_user(ctx)
 
-        # Check authentication inside function
-        auth_token = auth_middleware._extract_token_from_context(ctx)
-        if not auth_token:
-            raise ToolError("Authentication required: No token provided")
-
-        payload = auth_middleware.jwt_handler.validate_token(auth_token)
-        logger.info(f"Authenticated request from user: {payload.get('sub')}")
-
+        # Return products if auth succeeds
         return product_tools.list_products(ctx, limit, offset)
-
-    @mcp.tool()
-    def search_products(ctx: Context, query: str, limit: int = 50) -> Dict[str, Any]:
-        """Search products by code or name with fuzzy matching."""
-        # Check authentication inside function
-        auth_token = auth_middleware._extract_token_from_context(ctx)
-        if not auth_token:
-            raise ToolError("Authentication required: No token provided")
-
-        payload = auth_middleware.jwt_handler.validate_token(auth_token)
-        return product_tools.search_products(ctx, query, limit)
 
     # Functionality Management Tools
     @mcp.tool()
@@ -142,10 +150,13 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
         if not auth_token:
             raise ToolError("Authentication required: No token provided")
 
-        payload = auth_middleware.jwt_handler.validate_token(auth_token)
-        logger.info(f"Authenticated request from user: {payload.get('sub')}")
-
-        return functionality_tools.register_functionality(ctx, code, name)
+        try:
+            payload = auth_middleware.jwt_handler.validate_token(auth_token)
+            logger.info(f"Authenticated request from user: {payload.get('sub')}")
+            return functionality_tools.register_functionality(ctx, code, name)
+        except Exception as e:
+            logger.warning(f"Authentication failed: {str(e)}")
+            raise ToolError(f"Authentication failed: Invalid token")
 
     @mcp.tool()
     def get_functionality_details(ctx: Context, code: str) -> Dict[str, Any]:
@@ -155,10 +166,13 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
         if not auth_token:
             raise ToolError("Authentication required: No token provided")
 
-        payload = auth_middleware.jwt_handler.validate_token(auth_token)
-        logger.info(f"Authenticated request from user: {payload.get('sub')}")
-
-        return functionality_tools.get_functionality_details(ctx, code)
+        try:
+            payload = auth_middleware.jwt_handler.validate_token(auth_token)
+            logger.info(f"Authenticated request from user: {payload.get('sub')}")
+            return functionality_tools.get_functionality_details(ctx, code)
+        except Exception as e:
+            logger.warning(f"Authentication failed: {str(e)}")
+            raise ToolError(f"Authentication failed: Invalid token")
 
     @mcp.tool()
     def assign_functionalities_to_product(
@@ -289,9 +303,7 @@ def create_mcp_server(config: Optional[MCPServerConfig] = None) -> FastMCP:
     def authenticate_user(ctx: Context, username: str, password: str) -> Dict[str, Any]:
         """Authenticate user credentials and return JWT token for API access."""
         try:
-            # This bypasses auth middleware since login doesn't require authentication
-            jwt_handler = JWTHandler()
-            auth_middleware = AuthMiddleware(jwt_handler)
+            # Use the same jwt_handler and auth_middleware as the main server
             auth_result = auth_middleware.generate_auth_response(username, password)
 
             logger.info(f"User authenticated: {username}")
